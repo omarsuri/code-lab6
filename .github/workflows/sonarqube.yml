@@ -2,7 +2,7 @@ name: SonarQube Analysis
 
 on:
   push:
-    branches: [main, dev, production] # Trigger on main branches
+    branches: [main, dev, production] # Add your main branch here
   pull_request:
     branches: [production, dev, test]
     types: [opened, synchronize, reopened]
@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
 
       # Create backend test structure
       - name: Setup backend test structure
@@ -26,14 +26,11 @@ jobs:
           touch backend-flask/tests/__init__.py
           mv backend-flask/test_app.py backend-flask/tests/
 
-      # Create sonar properties file
+      # Create sonar properties
       - name: Create sonar properties
         run: |
           cat > sonar-project.properties << 'EOL'
-          sonar.organization=${{ secrets.SONAR_ORGANIZATION }}
-          sonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
           sonar.projectName=LMS System
-          sonar.host.url=https://sonarcloud.io
           sonar.sources=frontend-react/src,backend-flask
           sonar.tests=frontend-react/src/__tests__,backend-flask/tests
           sonar.exclusions=**/node_modules/**,**/*.test.js,**/*.test.tsx,**/tests/**,**/coverage/**
@@ -56,9 +53,26 @@ jobs:
         working-directory: frontend-react
         run: npm ci
 
-      - name: Run frontend tests
+      - name: Run frontend test
         working-directory: frontend-react
         run: npm test -- --coverage --watchAll=false --ci
+
+      # Create sonar properties again (overwriting previous file)
+      - name: Update sonar properties
+        run: |
+          cat > sonar-project.properties << 'EOL'
+          sonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+          sonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+          sonar.projectName=LMS System
+          sonar.sources=frontend-react/src,backend-flask
+          sonar.tests=frontend-react/src/__tests__,backend-flask/tests
+          sonar.exclusions=**/node_modules/**,**/*.test.js,**/*.test.tsx,**/tests/**,**/coverage/**
+          sonar.test.inclusions=**/*.test.js,**/*.test.tsx,**/test_*.py
+          sonar.python.coverage.reportPaths=backend-flask/coverage.xml
+          sonar.javascript.lcov.reportPaths=frontend-react/coverage/lcov.info
+          sonar.sourceEncoding=UTF-8
+          sonar.python.version=3.10
+          EOL
 
       # Backend setup and tests
       - name: Setup Python

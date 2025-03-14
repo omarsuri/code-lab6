@@ -1,4 +1,5 @@
 name: SonarQube Analysis
+run: sonar-scanner -Dsonar.organization=devsecops2311
 
 on:
   push:
